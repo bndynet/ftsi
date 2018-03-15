@@ -1,4 +1,7 @@
+import net.bndy.ftsi.Indexable;
+
 public class IndexModel4Test {
+    @Indexable(ignore = true)
     private Long id;
     private String title;
 

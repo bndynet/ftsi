@@ -1,44 +1,38 @@
 package net.bndy.ftsi;
 
 import net.bndy.lib.AnnotationHelper;
-import net.bndy.lib.StringHelper;
+import net.bndy.lib.CollectionHelper;
+import net.bndy.lib.ReflectionHelper;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class IndexService {
 
-    public IndexWriter writer;
     private String dataPath = "";
     private Analyzer analyzer;
-    private List<String> fields;
 
-    public IndexService() throws IOException {
+    public IndexService() {
         analyzer = new StandardAnalyzer();
     }
 
-    public void createIndex(Object data) throws IOException, IllegalAccessException, NoSuchFieldException {
-        IndexWriter writer = this.getWriter(data.getClass().getName());
+    public void createIndex(Object data) throws IOException, IllegalAccessException {
+        IndexWriter writer = this.getWriter(data.getClass());
         Document doc = new Document();
         Field[] fields = data.getClass().getDeclaredFields();
         for (Field field : fields) {
+            field.setAccessible(true);
             String fieldName = field.getName();
             Type fieldType = field.getGenericType();
             Object fieldValue = field.get(data);
@@ -47,14 +41,13 @@ public class IndexService {
                 continue;
             }
 
-            Indexable annotationIndexable = null; // AnnotationHelper.getFieldAnnotation(Indexable.class, data.getClass(), fieldName);
-            if (annotationIndexable !=null && annotationIndexable.disabled()) {
+            Indexable annotationIndexable = AnnotationHelper.getFieldAnnotation(Indexable.class, data.getClass(), fieldName);
+            if (annotationIndexable !=null && annotationIndexable.ignore()) {
                 continue;
             }
 
-            field.setAccessible(true);
             if (fieldType.equals(String.class)) {
-                if (annotationIndexable != null && annotationIndexable.indexType() == IndexType.EXACT) {
+                if (annotationIndexable != null && annotationIndexable.stringIndexType() == IndexType.EXACT) {
                     doc.add(new StringField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
                 } else {
                     doc.add(new TextField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
@@ -72,36 +65,48 @@ public class IndexService {
             }
         }
         writer.addDocument(doc);
-        writer.commit();
         writer.close();
     }
 
-    public void query(String keywords, String category) {
-        String[] words = StringHelper.splitWithoutWhitespace(keywords, " ");
-
-    }
-
-    public List<Map<String, Object>> search(String fieldName, String fieldValue, String category) throws IOException {
-        List<Map<String, Object>> result = new ArrayList<>();
-        DirectoryReader reader = this.getReader(category);
+    public <T> List<T> search(String fieldName, String fieldValue, Class<T> targetClass) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+        List<T> result = new ArrayList<>();
+        DirectoryReader reader = this.getReader(targetClass);
         IndexSearcher searcher = new IndexSearcher(reader);
         Query query = new TermQuery(new Term(fieldName, fieldValue));
         TopDocs topDocs = searcher.search(query, 10);
         for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-            Map<String, Object> item = new HashMap<>();
-            Document document = searcher.doc(scoreDoc.doc);
-            List<IndexableField> documentFields = document.getFields();
-            for (IndexableField documentField : documentFields) {
-                item.put(documentField.name(), documentField.stringValue());
-            }
-            result.add(item);
+            result.add(doc2Entity(searcher.doc(scoreDoc.doc), targetClass));
         }
         reader.close();
         return result;
     }
 
-    public void deleteAll(String category) throws IOException {
-        IndexWriter writer = this.getWriter(category);
+    public <T> List<T> search(String keywords, Class<T> targetClass) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+        List<String> lstFields = this.getIndexableFields(targetClass);
+        List<BooleanClause.Occur> lstOccurs = new ArrayList<>();
+        for(String field: lstFields) {
+            lstOccurs.add(BooleanClause.Occur.SHOULD);
+        }
+
+        Query query = MultiFieldQueryParser.parse(keywords,
+            lstFields.toArray(new String[lstFields.size()]),
+            lstOccurs.toArray(new BooleanClause.Occur[lstOccurs.size()]),
+            analyzer);
+
+        List<T> result = new ArrayList<>();
+        DirectoryReader reader = this.getReader(targetClass);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        TopDocs topDocs = searcher.search(query, 10);
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            result.add(doc2Entity(searcher.doc(scoreDoc.doc), targetClass));
+        }
+        reader.close();
+        return result;
+    }
+
+
+    public <T> void deleteAll(Class<T> targetClass) throws IOException {
+        IndexWriter writer = this.getWriter(targetClass);
         writer.deleteAll();
         writer.close();
     }
@@ -111,7 +116,7 @@ public class IndexService {
     }
 
     private Directory d;
-    private Directory getCategoryDirectory(String category) throws IOException {
+    private <T> Directory getCategoryDirectory(Class<T> targetClass) throws IOException {
         //soluation: RAMDirectory
         if (d == null) {
             d = new RAMDirectory();
@@ -121,18 +126,28 @@ public class IndexService {
 //        return FSDirectory.open(path);
     }
 
-    private IndexWriter getWriter(String category) throws IOException {
+    private <T> IndexWriter getWriter(Class<T> targetClass) throws IOException {
         IndexWriterConfig writerConfig = new IndexWriterConfig(analyzer);
-        return new IndexWriter(this.getCategoryDirectory(category), writerConfig);
+        return new IndexWriter(this.getCategoryDirectory(targetClass), writerConfig);
     }
 
-    private DirectoryReader getReader(String category) throws IOException {
-        return DirectoryReader.open(this.getCategoryDirectory(category));
+    private <T> DirectoryReader getReader(Class<T> targetClass) throws IOException {
+        return DirectoryReader.open(this.getCategoryDirectory(targetClass));
     }
 
-    private <T> Field[] getFieldsOfT(Class<T> clazz) {
-        return clazz.getDeclaredFields();
+    private List<String> getIndexableFields(Class<?> clazz) {
+        return CollectionHelper.convert(CollectionHelper.filter(ReflectionHelper.getAllFields(clazz), (f) -> {
+            Indexable indexable = AnnotationHelper.getFieldAnnotation(Indexable.class, clazz, f.getName());
+            return indexable == null || !indexable.ignore();
+        }), filed -> filed.getName());
     }
 
-
+    private <T> T doc2Entity(Document doc, Class<T> targetClass) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
+        List<IndexableField> documentFields = doc.getFields();
+        Map<String, Object> fieldMapping = new HashMap<>();
+        for (IndexableField documentField : documentFields) {
+            fieldMapping.put(documentField.name(), documentField.stringValue());
+        }
+        return CollectionHelper.convertMap2(fieldMapping, targetClass);
+    }
 }

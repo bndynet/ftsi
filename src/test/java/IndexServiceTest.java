@@ -1,14 +1,14 @@
 import net.bndy.ftsi.IndexService;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 public class IndexServiceTest {
 
-    @Test public void search() throws IOException, NoSuchFieldException, IllegalAccessException {
+    @Test public void search() throws IOException, IllegalAccessException, ParseException, ClassNotFoundException, InstantiationException {
 
         IndexModel4Test m1 = new IndexModel4Test();
         m1.setId(1l);
@@ -29,8 +29,12 @@ public class IndexServiceTest {
         service.createIndex(m2);
         service.createIndex(m3);
 
-        List<Map<String, Object>> matched = service.search("title", "hi", null);
+        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class);
         Assert.assertEquals(matched.size(), 1);
+        matched = service.search("Hello World", IndexModel4Test.class);
+        Assert.assertEquals(matched.size(), 2);
+
+        service.deleteAll();
     }
 }
 

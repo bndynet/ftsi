@@ -9,6 +9,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Indexable {
 
-    boolean disabled() default false;
-    IndexType indexType() default IndexType.FUZZY;
+    boolean ignore() default false;
+    IndexType stringIndexType() default IndexType.FUZZY;
 }
