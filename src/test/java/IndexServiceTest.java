@@ -1,8 +1,10 @@
 import net.bndy.ftsi.IndexService;
+import org.apache.commons.io.FileUtils;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -24,7 +26,8 @@ public class IndexServiceTest {
         m3.setContent("Index data 3");
 
 
-        IndexService service = new IndexService();
+        String indexDir = "./indexdir";
+        IndexService service = new IndexService(indexDir);
         service.createIndex(m1);
         service.createIndex(m2);
         service.createIndex(m3);
@@ -33,8 +36,21 @@ public class IndexServiceTest {
         Assert.assertEquals(matched.size(), 1);
         matched = service.search("Hello World", IndexModel4Test.class);
         Assert.assertEquals(matched.size(), 2);
+        Assert.assertEquals(service.getTotals(IndexModel4Test.class), 3);
 
-        service.deleteAll();
+
+        IndexModel4Test2 mm3 = new IndexModel4Test2();
+        mm3.setId(3l);
+        mm3.setTitle("hi");
+        mm3.setContent("Index data 3");
+        service.createIndex(mm3);
+        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class);
+        Assert.assertEquals(matched2.size(), 1);
+        Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 1);
+
+        Assert.assertEquals(service.getTotals(), 4);
+
+        FileUtils.deleteDirectory(new File(indexDir));
     }
 }
 

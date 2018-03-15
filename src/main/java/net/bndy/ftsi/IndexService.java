@@ -1,8 +1,7 @@
 package net.bndy.ftsi;
 
-import net.bndy.lib.AnnotationHelper;
-import net.bndy.lib.CollectionHelper;
-import net.bndy.lib.ReflectionHelper;
+import com.sun.istack.internal.NotNull;
+import net.bndy.lib.*;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -11,20 +10,46 @@ import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class IndexService {
 
-    private String dataPath = "";
+    private String dataDir;
     private Analyzer analyzer;
 
     public IndexService() {
         analyzer = new StandardAnalyzer();
+    }
+
+    public IndexService(String dataDir) {
+        this();
+        this.dataDir = dataDir;
+    }
+
+    public <T> int getTotals(Class<T> clazz) throws IOException {
+        return this.getReader(clazz).numDocs();
+    }
+
+    public int getTotals() throws IOException {
+        if (!StringHelper.isNullOrWhiteSpace(this.dataDir)) {
+            int totals = 0;
+            List<File> folders = IOHelper.getDirectories(this.dataDir);
+            for(File file: folders) {
+                totals += this.getReader(file.getName()).numDocs();
+            }
+            return totals;
+        }
+
+        return this.getReader().numDocs();
     }
 
     public void createIndex(Object data) throws IOException, IllegalAccessException {
@@ -104,35 +129,63 @@ public class IndexService {
         return result;
     }
 
-
     public <T> void deleteAll(Class<T> targetClass) throws IOException {
         IndexWriter writer = this.getWriter(targetClass);
         writer.deleteAll();
         writer.close();
     }
 
-    public void deleteAll() throws IOException {
-        this.deleteAll(null);
+    public void deleteAll() {
+        // TODO: clear all indexes
     }
 
-    private Directory d;
-    private <T> Directory getCategoryDirectory(Class<T> targetClass) throws IOException {
-        //soluation: RAMDirectory
-        if (d == null) {
-            d = new RAMDirectory();
+    private Directory ramDirectory;
+    private Directory getDirectory() throws IOException {
+        if (StringHelper.isNullOrWhiteSpace(this.dataDir)) {
+            if (ramDirectory == null)
+                ramDirectory = new RAMDirectory();
+            return ramDirectory;
         }
-        return d;
-//        Path path = Paths.get(dataPath, category);
-//        return FSDirectory.open(path);
+
+        return FSDirectory.open(Paths.get(this.dataDir));
+    }
+
+    private <T> Directory getCatalogDirectory(Class<T> targetClass) throws IOException {
+        if (StringHelper.isNullOrWhiteSpace(this.dataDir)) {
+            if (ramDirectory == null)
+                ramDirectory = new RAMDirectory();
+            return ramDirectory;
+        }
+
+        Path path = Paths.get(this.dataDir, targetClass.getName());
+        return FSDirectory.open(path);
+    }
+
+    private Directory getCatalogDirectory(String catalog) throws IOException {
+        if (StringHelper.isNullOrWhiteSpace(this.dataDir)) {
+            if (ramDirectory == null)
+                ramDirectory = new RAMDirectory();
+            return ramDirectory;
+        }
+
+        return FSDirectory.open(Paths.get(this.dataDir, catalog));
     }
 
     private <T> IndexWriter getWriter(Class<T> targetClass) throws IOException {
         IndexWriterConfig writerConfig = new IndexWriterConfig(analyzer);
-        return new IndexWriter(this.getCategoryDirectory(targetClass), writerConfig);
+        return new IndexWriter(this.getCatalogDirectory(targetClass), writerConfig);
+    }
+
+    public DirectoryReader getReader() throws IOException {
+        return DirectoryReader.open(this.getDirectory());
     }
 
     private <T> DirectoryReader getReader(Class<T> targetClass) throws IOException {
-        return DirectoryReader.open(this.getCategoryDirectory(targetClass));
+        return DirectoryReader.open(this.getCatalogDirectory(targetClass));
+    }
+
+    private DirectoryReader getReader(String catalog) throws IOException {
+        return DirectoryReader.open(this.getCatalogDirectory(catalog));
     }
 
     private List<String> getIndexableFields(Class<?> clazz) {
@@ -142,12 +195,16 @@ public class IndexService {
         }), filed -> filed.getName());
     }
 
-    private <T> T doc2Entity(Document doc, Class<T> targetClass) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
+    private <T> T doc2Entity(Document doc, @NotNull Class<T> targetClass) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
+        return CollectionHelper.convertMap2(this.doc2Map(doc), targetClass);
+    }
+
+    private Map<String, Object> doc2Map(Document doc) {
         List<IndexableField> documentFields = doc.getFields();
         Map<String, Object> fieldMapping = new HashMap<>();
         for (IndexableField documentField : documentFields) {
             fieldMapping.put(documentField.name(), documentField.stringValue());
         }
-        return CollectionHelper.convertMap2(fieldMapping, targetClass);
+        return fieldMapping;
     }
 }
