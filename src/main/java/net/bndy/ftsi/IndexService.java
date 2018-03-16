@@ -1,6 +1,5 @@
 package net.bndy.ftsi;
 
-import com.sun.istack.internal.NotNull;
 import net.bndy.lib.*;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -43,7 +42,7 @@ public class IndexService {
         if (!StringHelper.isNullOrWhiteSpace(this.dataDir)) {
             int totals = 0;
             List<File> folders = IOHelper.getDirectories(this.dataDir);
-            for(File file: folders) {
+            for (File file : folders) {
                 totals += this.getReader(file.getName()).numDocs();
             }
             return totals;
@@ -52,45 +51,50 @@ public class IndexService {
         return this.getReader().numDocs();
     }
 
-    public void createIndex(Object data) throws IOException, IllegalAccessException {
-        IndexWriter writer = this.getWriter(data.getClass());
-        Document doc = new Document();
-        Field[] fields = data.getClass().getDeclaredFields();
-        for (Field field : fields) {
-            field.setAccessible(true);
-            String fieldName = field.getName();
-            Type fieldType = field.getGenericType();
-            Object fieldValue = field.get(data);
+    public void createIndex(Object data) {
+        try {
+            IndexWriter writer = this.getWriter(data.getClass());
+            Document doc = new Document();
+            Field[] fields = data.getClass().getDeclaredFields();
+            for (Field field : fields) {
+                field.setAccessible(true);
+                String fieldName = field.getName();
+                Type fieldType = field.getGenericType();
+                Object fieldValue = field.get(data);
 
-            if (fieldValue == null) {
-                continue;
-            }
-
-            Indexable annotationIndexable = AnnotationHelper.getFieldAnnotation(Indexable.class, data.getClass(), fieldName);
-            if (annotationIndexable !=null && annotationIndexable.ignore()) {
-                continue;
-            }
-
-            if (fieldType.equals(String.class)) {
-                if (annotationIndexable != null && annotationIndexable.stringIndexType() == IndexType.EXACT) {
-                    doc.add(new StringField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
-                } else {
-                    doc.add(new TextField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
+                if (fieldValue == null) {
+                    continue;
                 }
-            } else if (fieldType.equals(Long.class) || fieldType.equals(long.class)) {
-                doc.add(new LongPoint(fieldName, Long.parseLong(field.get(data).toString())));
-            } else if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) {
-                doc.add(new IntPoint(fieldName, field.getInt(data)));
-            } else if (fieldType.equals(Float.class) || fieldType.equals(float.class)) {
-                doc.add(new FloatPoint(fieldName, field.getFloat(data)));
-            } else if (fieldType.equals(Double.class) || fieldType.equals(double.class)) {
-                doc.add(new DoublePoint(fieldName, field.getDouble(data)));
-            } else {
-                doc.add(new StringField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
+
+                Indexable annotationIndexable = AnnotationHelper.getFieldAnnotation(Indexable.class, data.getClass(), fieldName);
+                if (annotationIndexable != null && annotationIndexable.ignore()) {
+                    continue;
+                }
+
+                if (fieldType.equals(String.class)) {
+                    if (annotationIndexable != null && annotationIndexable.stringIndexType() == IndexType.EXACT) {
+                        doc.add(new StringField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
+                    } else {
+                        doc.add(new TextField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
+                    }
+                } else if (fieldType.equals(Long.class) || fieldType.equals(long.class)) {
+                    doc.add(new LongPoint(fieldName, Long.parseLong(field.get(data).toString())));
+                } else if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) {
+                    doc.add(new IntPoint(fieldName, field.getInt(data)));
+                } else if (fieldType.equals(Float.class) || fieldType.equals(float.class)) {
+                    doc.add(new FloatPoint(fieldName, field.getFloat(data)));
+                } else if (fieldType.equals(Double.class) || fieldType.equals(double.class)) {
+                    doc.add(new DoublePoint(fieldName, field.getDouble(data)));
+                } else {
+                    doc.add(new StringField(fieldName, field.get(data).toString(), org.apache.lucene.document.Field.Store.YES));
+                }
             }
+            writer.addDocument(doc);
+            writer.close();
+            writer.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
-        writer.addDocument(doc);
-        writer.close();
     }
 
     public <T> List<T> search(String fieldName, String fieldValue, Class<T> targetClass) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
@@ -107,16 +111,28 @@ public class IndexService {
     }
 
     public <T> List<T> search(String keywords, Class<T> targetClass) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+        return this.search(keywords, targetClass, null);
+    }
+
+    public <T> List<T> search(String keywords, Class<T> targetClass, Map<String, Object> andCondition) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
         List<String> lstFields = this.getIndexableFields(targetClass);
         List<BooleanClause.Occur> lstOccurs = new ArrayList<>();
-        for(String field: lstFields) {
+        for (String field : lstFields) {
             lstOccurs.add(BooleanClause.Occur.SHOULD);
+        }
+
+        if (andCondition != null) {
+            for (String key : andCondition.keySet()) {
+                lstOccurs.add(BooleanClause.Occur.MUST);
+                lstFields.add(key);
+            }
         }
 
         Query query = MultiFieldQueryParser.parse(keywords,
             lstFields.toArray(new String[lstFields.size()]),
             lstOccurs.toArray(new BooleanClause.Occur[lstOccurs.size()]),
             analyzer);
+
 
         List<T> result = new ArrayList<>();
         DirectoryReader reader = this.getReader(targetClass);
@@ -140,6 +156,7 @@ public class IndexService {
     }
 
     private Directory ramDirectory;
+
     private Directory getDirectory() throws IOException {
         if (StringHelper.isNullOrWhiteSpace(this.dataDir)) {
             if (ramDirectory == null)
@@ -195,7 +212,7 @@ public class IndexService {
         }), filed -> filed.getName());
     }
 
-    private <T> T doc2Entity(Document doc, @NotNull Class<T> targetClass) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
+    private <T> T doc2Entity(Document doc, Class<T> targetClass) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
         return CollectionHelper.convertMap2(this.doc2Map(doc), targetClass);
     }
 

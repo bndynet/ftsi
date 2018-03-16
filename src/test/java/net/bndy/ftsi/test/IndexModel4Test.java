@@ -1,6 +1,8 @@
+package net.bndy.ftsi.test;
+
 import net.bndy.ftsi.Indexable;
 
-public class IndexModel4Test2 {
+public class IndexModel4Test {
     @Indexable(ignore = true)
     private Long id;
     private String title;

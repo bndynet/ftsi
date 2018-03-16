@@ -56,7 +56,7 @@ uploadArchives {
             }
 
             pom.project {
-                name 'ftsi'
+                name 'Full Text Search Interface'
                 packaging 'jar'
 
                 // optionally artifactId can be defined here
