@@ -62,6 +62,9 @@ public class IndexServiceTest {
         Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 4);
 
         Assert.assertEquals(service.getTotals(), 4);
+
+        service.deleteAll();
+        Assert.assertEquals(service.getTotals(), 0);
     }
 
     @Test public void indexWithFolder() throws IOException, IllegalAccessException, ParseException, ClassNotFoundException, InstantiationException {
@@ -87,7 +90,9 @@ public class IndexServiceTest {
 
         Assert.assertEquals(service.getTotals(), 4);
 
-        IOHelper.forceDelete(dataDir);
+
+        service.deleteAll();
+        Assert.assertEquals(IOHelper.isDirectoryExisted(dataDir), false);
     }
 }
 

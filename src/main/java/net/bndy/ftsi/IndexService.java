@@ -34,21 +34,31 @@ public class IndexService {
         this.dataDir = dataDir;
     }
 
-    public <T> int getTotals(Class<T> clazz) throws IOException {
-        return this.getReader(clazz).numDocs();
+    public <T> int getTotals(Class<T> clazz) {
+        try {
+            return this.getReader(clazz).numDocs();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return 0;
     }
 
-    public int getTotals() throws IOException {
-        if (!StringHelper.isNullOrWhiteSpace(this.dataDir)) {
-            int totals = 0;
-            List<File> folders = IOHelper.getDirectories(this.dataDir);
-            for (File file : folders) {
-                totals += this.getReader(file.getName()).numDocs();
+    public int getTotals() {
+        try {
+            if (!StringHelper.isNullOrWhiteSpace(this.dataDir) && IOHelper.isDirectoryExisted(this.dataDir)) {
+                int totals = 0;
+                List<File> folders = IOHelper.getDirectories(this.dataDir);
+                for (File file : folders) {
+                    totals += this.getReader(file.getName()).numDocs();
+                }
+                return totals;
             }
-            return totals;
-        }
 
-        return this.getReader().numDocs();
+            return this.getReader().numDocs();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return 0;
     }
 
     public void createIndex(Object data) {
@@ -154,26 +164,40 @@ public class IndexService {
         return result;
     }
 
-    public <T> void deleteAll(Class<T> targetClass) throws IOException {
-        IndexWriter writer = this.getWriter(targetClass);
-        writer.deleteAll();
-        writer.close();
+    public <T> void deleteAll(Class<T> targetClass) {
+        if (!StringHelper.isNullOrWhiteSpace(this.dataDir)) {
+            IOHelper.forceDelete(this.dataDir);
+        } else {
+            IndexWriter writer = this.getWriter(targetClass);
+            try {
+                writer.deleteAll();
+                writer.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     public void deleteAll() {
-        // TODO: clear all indexes
+        this.deleteAll(null);
     }
 
     private Directory ramDirectory;
 
-    private Directory getDirectory() throws IOException {
+    private Directory getDirectory() {
         if (StringHelper.isNullOrWhiteSpace(this.dataDir)) {
             if (ramDirectory == null)
                 ramDirectory = new RAMDirectory();
             return ramDirectory;
         }
 
-        return FSDirectory.open(Paths.get(this.dataDir));
+        try {
+            return FSDirectory.open(Paths.get(this.dataDir));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        return null;
     }
 
     private <T> Directory getCatalogDirectory(Class<T> targetClass) throws IOException {
@@ -197,9 +221,19 @@ public class IndexService {
         return FSDirectory.open(Paths.get(this.dataDir, catalog));
     }
 
-    private <T> IndexWriter getWriter(Class<T> targetClass) throws IOException {
+    private <T> IndexWriter getWriter(Class<T> targetClass) {
         IndexWriterConfig writerConfig = new IndexWriterConfig(analyzer);
-        return new IndexWriter(this.getCatalogDirectory(targetClass), writerConfig);
+        try {
+            if (targetClass == null) {
+                return new IndexWriter(this.getDirectory(), writerConfig);
+            } else {
+                return new IndexWriter(this.getCatalogDirectory(targetClass), writerConfig);
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        return null;
     }
 
     public DirectoryReader getReader() throws IOException {
