@@ -91,30 +91,33 @@ public class IndexService {
             }
             writer.addDocument(doc);
             writer.close();
-            writer.close();
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public <T> List<T> search(String fieldName, String fieldValue, Class<T> targetClass) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+    public <T> List<T> search(String fieldName, String fieldValue, Class<T> targetClass, int page, int pageSize) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
         List<T> result = new ArrayList<>();
         DirectoryReader reader = this.getReader(targetClass);
         IndexSearcher searcher = new IndexSearcher(reader);
         Query query = new TermQuery(new Term(fieldName, fieldValue));
-        TopDocs topDocs = searcher.search(query, 10);
-        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-            result.add(doc2Entity(searcher.doc(scoreDoc.doc), targetClass));
+        TopDocs topDocs = searcher.search(query, page * pageSize);
+        ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+        for(int i = (page - 1); i < page * pageSize; i++ ) {
+            if (i >= scoreDocs.length) {
+                break;
+            }
+            result.add(doc2Entity(searcher.doc(scoreDocs[i].doc), targetClass));
         }
         reader.close();
         return result;
     }
 
-    public <T> List<T> search(String keywords, Class<T> targetClass) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
-        return this.search(keywords, targetClass, null);
+    public <T> List<T> search(String keywords, Class<T> targetClass, int page, int pageSize) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+        return this.search(keywords, targetClass, null, page, pageSize);
     }
 
-    public <T> List<T> search(String keywords, Class<T> targetClass, Map<String, Object> andCondition) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
+    public <T> List<T> search(String keywords, Class<T> targetClass, Map<String, Object> andCondition, int page, int pageSize) throws ParseException, IOException, IllegalAccessException, ClassNotFoundException, InstantiationException {
         List<String> lstFields = this.getIndexableFields(targetClass);
         List<BooleanClause.Occur> lstOccurs = new ArrayList<>();
         for (String field : lstFields) {
@@ -137,10 +140,16 @@ public class IndexService {
         List<T> result = new ArrayList<>();
         DirectoryReader reader = this.getReader(targetClass);
         IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs topDocs = searcher.search(query, 10);
-        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-            result.add(doc2Entity(searcher.doc(scoreDoc.doc), targetClass));
+        TopDocs topDocs = searcher.search(query, page * pageSize);
+        ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+
+        for(int i = (page - 1); i < page * pageSize; i++ ) {
+            if (i >= scoreDocs.length) {
+                break;
+            }
+            result.add(doc2Entity(searcher.doc(scoreDocs[i].doc), targetClass));
         }
+
         reader.close();
         return result;
     }

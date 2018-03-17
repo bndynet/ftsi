@@ -47,9 +47,9 @@ public class IndexServiceTest {
         for(IndexModel4Test m: this.models) {
             service.createIndex(m);
         }
-        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class);
+        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matched.size(), 1);
-        matched = service.search("Hello World", IndexModel4Test.class);
+        matched = service.search("Hello World", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matched.size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test.class), 3);
 
@@ -57,7 +57,7 @@ public class IndexServiceTest {
         for(IndexModel4Test2 m: this.models2) {
             service.createIndex(m);
         }
-        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class);
+        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
         Assert.assertEquals(matched2.size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 4);
 
@@ -71,9 +71,9 @@ public class IndexServiceTest {
             service.createIndex(m);
         }
 
-        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class);
+        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matched.size(), 1);
-        matched = service.search("Hello World", IndexModel4Test.class);
+        matched = service.search("Hello World", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matched.size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test.class), 3);
 
@@ -81,13 +81,13 @@ public class IndexServiceTest {
         for(IndexModel4Test2 m: this.models2) {
             service.createIndex(m);
         }
-        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class);
+        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
         Assert.assertEquals(matched2.size(), 1);
         Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 1);
 
         Assert.assertEquals(service.getTotals(), 4);
 
-//        IOHelper.forceDelete(dataDir);
+        IOHelper.forceDelete(dataDir);
     }
 }
 
