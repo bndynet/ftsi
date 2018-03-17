@@ -113,7 +113,7 @@ public class IndexService {
         Query query = new TermQuery(new Term(fieldName, fieldValue));
         TopDocs topDocs = searcher.search(query, page * pageSize);
         ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-        for(int i = (page - 1); i < page * pageSize; i++ ) {
+        for(int i = (page - 1) * pageSize; i < page * pageSize; i++ ) {
             if (i >= scoreDocs.length) {
                 break;
             }
@@ -153,7 +153,7 @@ public class IndexService {
         TopDocs topDocs = searcher.search(query, page * pageSize);
         ScoreDoc[] scoreDocs = topDocs.scoreDocs;
 
-        for(int i = (page - 1); i < page * pageSize; i++ ) {
+        for(int i = (page - 1) * pageSize; i < page * pageSize; i++ ) {
             if (i >= scoreDocs.length) {
                 break;
             }
