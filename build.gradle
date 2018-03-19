@@ -1,5 +1,5 @@
 group 'net.bndy'
-version '1.0-pre'
+version '1.0'
 
 apply plugin: 'java'
 apply plugin: 'maven'

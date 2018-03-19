@@ -1,6 +1,7 @@
 package net.bndy.ftsi.test;
 
 import net.bndy.ftsi.IndexService;
+import net.bndy.ftsi.SearchResult;
 import net.bndy.lib.IOHelper;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.junit.Assert;
@@ -47,18 +48,18 @@ public class IndexServiceTest {
         for(IndexModel4Test m: this.models) {
             service.createIndex(m);
         }
-        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
-        Assert.assertEquals(matched.size(), 1);
+        SearchResult<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
+        Assert.assertEquals(matched.getContent().size(), 1);
         matched = service.search("Hello World", IndexModel4Test.class, 1, 10);
-        Assert.assertEquals(matched.size(), 2);
+        Assert.assertEquals(matched.getContent().size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test.class), 3);
 
 
         for(IndexModel4Test2 m: this.models2) {
             service.createIndex(m);
         }
-        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
-        Assert.assertEquals(matched2.size(), 2);
+        SearchResult<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
+        Assert.assertEquals(matched2.getContent().size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 4);
 
         Assert.assertEquals(service.getTotals(), 4);
@@ -74,18 +75,18 @@ public class IndexServiceTest {
             service.createIndex(m);
         }
 
-        List<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
-        Assert.assertEquals(matched.size(), 1);
+        SearchResult<IndexModel4Test> matched = service.search("title", "hi", IndexModel4Test.class, 1, 10);
+        Assert.assertEquals(matched.getContent().size(), 1);
         matched = service.search("Hello World", IndexModel4Test.class, 1, 10);
-        Assert.assertEquals(matched.size(), 2);
+        Assert.assertEquals(matched.getContent().size(), 2);
         Assert.assertEquals(service.getTotals(IndexModel4Test.class), 3);
 
 
         for(IndexModel4Test2 m: this.models2) {
             service.createIndex(m);
         }
-        List<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
-        Assert.assertEquals(matched2.size(), 1);
+        SearchResult<IndexModel4Test2> matched2 = service.search("title", "hi", IndexModel4Test2.class, 1, 10);
+        Assert.assertEquals(matched2.getContent().size(), 1);
         Assert.assertEquals(service.getTotals(IndexModel4Test2.class), 1);
 
         Assert.assertEquals(service.getTotals(), 4);
