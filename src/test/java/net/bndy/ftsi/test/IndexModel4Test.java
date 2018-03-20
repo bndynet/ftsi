@@ -3,15 +3,15 @@ package net.bndy.ftsi.test;
 import net.bndy.ftsi.Indexable;
 
 public class IndexModel4Test {
-    @Indexable(ignore = true)
-    private Long id;
+    @Indexable(ignore = true, isKey = true)
+    private String id;
     private String title;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

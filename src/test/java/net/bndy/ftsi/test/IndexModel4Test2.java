@@ -4,14 +4,14 @@ import net.bndy.ftsi.Indexable;
 
 public class IndexModel4Test2 {
     @Indexable(ignore = true)
-    private Long id;
+    private Integer id;
     private String title;
 
-    public Long getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
