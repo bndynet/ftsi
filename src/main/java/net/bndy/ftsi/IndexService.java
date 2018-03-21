@@ -2,12 +2,15 @@ package net.bndy.ftsi;
 
 import net.bndy.lib.*;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.*;
+import org.apache.lucene.search.highlight.*;
+import org.apache.lucene.search.highlight.Formatter;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
@@ -21,12 +24,26 @@ import java.util.*;
 
 public class IndexService {
 
+    private static final String DEFAULT_HIGHLIGHT_PRE_TAG = "<B class='highlight'>";
+    private static final String DEFAULT_HIGHLIGHT_POST_TAG = "</B>";
+    private static final int DEFAULT_HIGHLIGHT_FRAGMENT_SIZE = 100;
+
     private String dataDir;
     private Analyzer analyzer;
+    private String highlightPreTag;
+    private String highlightPostTag;
+    private int highlightFragmentSize;
 
     public IndexService(String dataDir) {
+        this(dataDir, DEFAULT_HIGHLIGHT_PRE_TAG, DEFAULT_HIGHLIGHT_POST_TAG, DEFAULT_HIGHLIGHT_FRAGMENT_SIZE);
+    }
+
+    public IndexService(String dataDir, String highlightPreTag, String highlightPostTag, int highlightFragmentSize) {
         this.analyzer = new StandardAnalyzer();
         this.dataDir = dataDir;
+        this.highlightPreTag = highlightPreTag;
+        this.highlightPostTag = highlightPostTag;
+        this.highlightFragmentSize = highlightFragmentSize;
     }
 
     public <T> IndexStatus status(Class<T> clazz) {
@@ -185,6 +202,7 @@ public class IndexService {
         DirectoryReader reader = this.getReader(targetClass);
         IndexSearcher searcher = new IndexSearcher(reader);
         Query query = new TermQuery(new Term(fieldName, fieldValue));
+        Highlighter highlighter = this.getHighlighter(query);
         try {
             TopDocs topDocs = searcher.search(query, page * pageSize);
             ScoreDoc[] scoreDocs = topDocs.scoreDocs;
@@ -192,7 +210,8 @@ public class IndexService {
                 if (i >= scoreDocs.length) {
                     break;
                 }
-                items.add(doc2Entity(searcher.doc(scoreDocs[i].doc), targetClass));
+                int docId = scoreDocs[i].doc;
+                items.add(doc2Entity(docId, searcher.doc(docId), targetClass, highlighter, reader));
             }
             reader.close();
             return new SearchResult<>(page, pageSize, topDocs.totalHits > page * pageSize, items);
@@ -235,12 +254,13 @@ public class IndexService {
             IndexSearcher searcher = new IndexSearcher(reader);
             TopDocs topDocs = searcher.search(query, page * pageSize);
             ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-
+            Highlighter highlighter = this.getHighlighter(query);
             for (int i = (page - 1) * pageSize; i < page * pageSize; i++) {
                 if (i >= scoreDocs.length) {
                     break;
                 }
-                items.add(doc2Entity(searcher.doc(scoreDocs[i].doc), targetClass));
+                int docId = scoreDocs[i].doc;
+                items.add(doc2Entity(docId, searcher.doc(docId), targetClass, highlighter, reader));
             }
 
             reader.close();
@@ -324,9 +344,9 @@ public class IndexService {
         }), filed -> filed.getName());
     }
 
-    private <T> T doc2Entity(Document doc, Class<T> targetClass) {
+    private <T> T doc2Entity(int docId, Document doc, Class<T> targetClass, Highlighter highlighter, IndexReader reader) {
         try {
-            return CollectionHelper.convertMap2(this.doc2Map(doc), targetClass);
+            return CollectionHelper.convertMap2(this.doc2Map(docId, doc, highlighter, reader), targetClass);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -334,14 +354,29 @@ public class IndexService {
         return null;
     }
 
-    private Map<String, Object> doc2Map(Document doc) {
+    private Map<String, Object> doc2Map(int docId, Document doc, Highlighter highlighter, IndexReader reader) {
         List<IndexableField> documentFields = doc.getFields();
         Map<String, Object> fieldMapping = new HashMap<>();
         for (IndexableField documentField : documentFields) {
             if (documentField.numericValue() != null) {
                 fieldMapping.put(documentField.name(), documentField.numericValue());
             } else {
-                fieldMapping.put(documentField.name(), documentField.stringValue());
+                String fieldValue = documentField.stringValue();
+                if (highlighter != null) {
+                    try {
+                        TokenStream tokenStream = TokenSources.getTokenStream(documentField.name(), reader.getTermVectors(docId),
+                            fieldValue, this.analyzer, 0);
+                        String fragment = highlighter.getBestFragment(tokenStream, fieldValue);
+                        if (fragment != null) {
+                            fieldValue = fragment;
+                        }
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    } catch (InvalidTokenOffsetsException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+                fieldMapping.put(documentField.name(), fieldValue);
             }
         }
         return fieldMapping;
@@ -356,5 +391,19 @@ public class IndexService {
 
     private IndexWriterConfig getIndexWriterConfig() {
         return new IndexWriterConfig(analyzer);
+    }
+
+    private Highlighter getHighlighter(Query query) {
+        QueryScorer scorer = new QueryScorer(query);
+        Formatter formatter;
+        if (highlightPreTag != null && highlightPostTag != null) {
+            formatter = new SimpleHTMLFormatter(highlightPreTag, highlightPostTag);
+        } else {
+            formatter = new SimpleHTMLFormatter(DEFAULT_HIGHLIGHT_PRE_TAG, DEFAULT_HIGHLIGHT_POST_TAG);
+        }
+        Highlighter highlighter = new Highlighter(formatter, scorer);
+        Fragmenter fragmenter = new SimpleSpanFragmenter(scorer, highlightFragmentSize);
+        highlighter.setTextFragmenter(fragmenter);
+        return highlighter;
     }
 }
