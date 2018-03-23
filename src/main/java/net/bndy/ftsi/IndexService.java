@@ -365,7 +365,7 @@ public class IndexService {
                 if (highlighter != null) {
                     try {
                         TokenStream tokenStream = TokenSources.getTokenStream(documentField.name(), reader.getTermVectors(docId),
-                            fieldValue, this.analyzer, 0);
+                            fieldValue, this.analyzer, -1);
                         String fragment = highlighter.getBestFragment(tokenStream, fieldValue);
                         if (fragment != null) {
                             fieldValue = fragment;

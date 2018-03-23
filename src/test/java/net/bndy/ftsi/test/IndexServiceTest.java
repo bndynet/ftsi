@@ -67,8 +67,8 @@ public class IndexServiceTest {
     public void t1_testSearch() {
         SearchResult<IndexModel4Test> matched = indexService.search("title", "hi", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matched.getContent().size(), 1);
-        matched = indexService.search("Hello World", IndexModel4Test.class, 1, 10);
-        Assert.assertEquals(matched.getContent().size(), 2);
+        matched = indexService.search("World", IndexModel4Test.class, 1, 10);
+        Assert.assertEquals(matched.getContent().size(), 1);
         Assert.assertEquals(indexService.getTotals(IndexModel4Test.class), 3);
 
         SearchResult<IndexModel4Test2> matched2 = indexService.search("title", "hi", IndexModel4Test2.class, 1, 10);
