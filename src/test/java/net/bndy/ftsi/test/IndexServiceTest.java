@@ -93,7 +93,7 @@ public class IndexServiceTest {
         IndexModel4Test newModel = new IndexModel4Test();
         newModel.setId("1");
         newModel.setTitle("Updated");
-        newModel.setContent("This is an updated item。");
+        newModel.setContent("This is an updated item.");
         indexService.updateIndex(newModel);
 
         IndexStatus status = indexService.status(IndexModel4Test.class);

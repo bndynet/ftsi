@@ -28,22 +28,43 @@ public class IndexService {
     private static final String DEFAULT_HIGHLIGHT_POST_TAG = "</B>";
     private static final int DEFAULT_HIGHLIGHT_FRAGMENT_SIZE = 100;
 
-    private String dataDir;
+    private String dataPath;
     private Analyzer analyzer;
     private String highlightPreTag;
     private String highlightPostTag;
     private int highlightFragmentSize;
 
-    public IndexService(String dataDir) {
-        this(dataDir, DEFAULT_HIGHLIGHT_PRE_TAG, DEFAULT_HIGHLIGHT_POST_TAG, DEFAULT_HIGHLIGHT_FRAGMENT_SIZE);
+    public IndexService(String dataPath) {
+        this(dataPath, new StandardAnalyzer(), null, null, null);
     }
 
-    public IndexService(String dataDir, String highlightPreTag, String highlightPostTag, int highlightFragmentSize) {
-        this.analyzer = new StandardAnalyzer();
-        this.dataDir = dataDir;
-        this.highlightPreTag = highlightPreTag;
-        this.highlightPostTag = highlightPostTag;
-        this.highlightFragmentSize = highlightFragmentSize;
+    public IndexService(String dataPath, Analyzer analyzer) {
+        this(dataPath, analyzer, null, null, null);
+    }
+
+    public IndexService(String dataPath, String highlightPreTag, String highlightPostTag, int highlightFragmentSize) {
+        this(dataPath, new StandardAnalyzer(), highlightPreTag, highlightPostTag, highlightFragmentSize);
+    }
+
+    public IndexService(String dataPath,
+                        Analyzer analyzer,
+                        String highlightPreTag,
+                        String highlightPostTag,
+                        Integer highlightFragmentSize) {
+
+        if (StringHelper.isNullOrWhiteSpace(dataPath)) {
+            throw new IllegalArgumentException("The data path can not be empty.");
+        }
+
+        this.dataPath = dataPath;
+        this.analyzer = analyzer == null
+            ? new StandardAnalyzer() : analyzer;
+        this.highlightPreTag = highlightPreTag == null
+            ?  DEFAULT_HIGHLIGHT_PRE_TAG : highlightPreTag;
+        this.highlightPostTag = highlightPostTag == null
+            ? DEFAULT_HIGHLIGHT_POST_TAG : highlightPostTag;
+        this.highlightFragmentSize = highlightFragmentSize == null
+            ? DEFAULT_HIGHLIGHT_FRAGMENT_SIZE : highlightFragmentSize.intValue();
     }
 
     public <T> IndexStatus status(Class<T> clazz) {
@@ -63,8 +84,8 @@ public class IndexService {
 
     public int getTotals() {
         int totals = 0;
-        if (!StringHelper.isNullOrWhiteSpace(this.dataDir) && IOHelper.isDirectoryExisted(this.dataDir)) {
-            List<File> folders = IOHelper.getDirectories(this.dataDir);
+        if (!StringHelper.isNullOrWhiteSpace(this.dataPath) && IOHelper.isDirectoryExisted(this.dataPath)) {
+            List<File> folders = IOHelper.getDirectories(this.dataPath);
             for (File file : folders) {
                 totals += this.getReader(file.getName()).numDocs();
             }
@@ -285,8 +306,8 @@ public class IndexService {
     }
 
     public void deleteAll() {
-        if (!StringHelper.isNullOrWhiteSpace(this.dataDir) && IOHelper.isDirectoryExisted(this.dataDir)) {
-            List<File> folders = IOHelper.getDirectories(this.dataDir);
+        if (!StringHelper.isNullOrWhiteSpace(this.dataPath) && IOHelper.isDirectoryExisted(this.dataPath)) {
+            List<File> folders = IOHelper.getDirectories(this.dataPath);
             for (File file : folders) {
                 IndexWriter writer = this.getWriter(file.getName());
                 try {
@@ -304,7 +325,7 @@ public class IndexService {
     }
 
     private <T> Directory getCatalogDirectory(String catalog) throws IOException {
-        Path path = Paths.get(this.dataDir, catalog);
+        Path path = Paths.get(this.dataPath, catalog);
         return FSDirectory.open(path);
     }
 
@@ -394,13 +415,12 @@ public class IndexService {
     }
 
     private Highlighter getHighlighter(Query query) {
-        QueryScorer scorer = new QueryScorer(query);
-        Formatter formatter;
-        if (highlightPreTag != null && highlightPostTag != null) {
-            formatter = new SimpleHTMLFormatter(highlightPreTag, highlightPostTag);
-        } else {
-            formatter = new SimpleHTMLFormatter(DEFAULT_HIGHLIGHT_PRE_TAG, DEFAULT_HIGHLIGHT_POST_TAG);
+        if (this.highlightPreTag == null || this.highlightPostTag == null) {
+            return null;
         }
+
+        QueryScorer scorer = new QueryScorer(query);
+        Formatter formatter = new SimpleHTMLFormatter(highlightPreTag, highlightPostTag);
         Highlighter highlighter = new Highlighter(formatter, scorer);
         Fragmenter fragmenter = new SimpleSpanFragmenter(scorer, highlightFragmentSize);
         highlighter.setTextFragmenter(fragmenter);
