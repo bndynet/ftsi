@@ -23,7 +23,7 @@ entity.setContent("This is the content.");
 IndexService indexService = new IndexService("<path for index persistence>");
 indexService.createIndex(entityInstance);
 indexService.deleteIndex(Entity.class, "<id>");
-SearchResult<Entity> matched = indexService.search("title", "world", Entity.class, 1, 10);
+SearchResult<Entity> matched = indexService.search("world", Entity.class, 1, 10);
 ```
 
 Example Project: https://github.com/bndynet/web-framework-for-java
