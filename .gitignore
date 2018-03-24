@@ -1,7 +1,9 @@
 .idea
 .gradle
+ftsi.iml
 /build/
 /out/
+/index_dir/
 
 # Ignore Gradle GUI config
 gradle-app.setting

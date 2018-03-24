@@ -21,6 +21,9 @@ public class IndexServiceTest {
 
 
     @BeforeClass public static void init() {
+        IOHelper.forceDelete(dataDir);
+        Assert.assertEquals(IOHelper.isDirectoryExisted(dataDir), false);
+
         IndexModel4Test m1 = new IndexModel4Test();
         m1.setId("1");
         m1.setTitle("Hello World");
@@ -57,9 +60,6 @@ public class IndexServiceTest {
     @AfterClass public static void destroy() {
         indexService.deleteAll();
         Assert.assertEquals(indexService.getTotals(), 0);
-
-        IOHelper.forceDelete(dataDir);
-        Assert.assertEquals(IOHelper.isDirectoryExisted(dataDir), false);
     }
 
 
