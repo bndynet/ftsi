@@ -1,5 +1,5 @@
 group 'net.bndy'
-version '1.4'
+version '1.5'
 
 apply plugin: 'java'
 apply plugin: 'maven'
@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    compile group: 'net.bndy', name: 'lib', version: '1.0.8'
+    compile group: 'net.bndy', name: 'lib', version: '1.0.9'
     compile group: 'org.apache.lucene', name: 'lucene-core', version: '7.2.1'
     compile group: 'org.apache.lucene', name: 'lucene-queryparser', version: '7.2.1'
     compile group: 'org.apache.lucene', name: 'lucene-highlighter', version: '7.2.1'
