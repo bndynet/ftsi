@@ -256,20 +256,28 @@ public class IndexService {
             lstOccurs.add(BooleanClause.Occur.SHOULD);
         }
 
-        if (andCondition != null) {
-            for (String key : andCondition.keySet()) {
-                lstOccurs.add(BooleanClause.Occur.MUST);
-                lstFields.add(key);
-            }
-        }
 
         try {
-            Query query = MultiFieldQueryParser.parse(keywords,
+            Query multiFieldQuery = MultiFieldQueryParser.parse(keywords,
                 lstFields.toArray(new String[lstFields.size()]),
                 lstOccurs.toArray(new BooleanClause.Occur[lstOccurs.size()]),
                 analyzer);
 
+            BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
+            queryBuilder.add(multiFieldQuery, BooleanClause.Occur.SHOULD);
 
+            if (andCondition != null) {
+                for (String key : andCondition.keySet()) {
+                    if (andCondition.get(key) == null) {
+                        continue;
+                    }
+
+                    TermQuery termQuery = new TermQuery(new Term(key, andCondition.get(key).toString()));
+                    queryBuilder.add(termQuery, BooleanClause.Occur.MUST);
+                }
+            }
+
+            Query query = queryBuilder.build();
             List<T> items = new ArrayList<>();
             DirectoryReader reader = this.getReader(targetClass);
             IndexSearcher searcher = new IndexSearcher(reader);

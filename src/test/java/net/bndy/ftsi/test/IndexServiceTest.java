@@ -4,11 +4,13 @@ import net.bndy.ftsi.IndexService;
 import net.bndy.ftsi.IndexStatus;
 import net.bndy.ftsi.NoKeyDefinedException;
 import net.bndy.ftsi.SearchResult;
+import net.bndy.lib.CollectionHelper;
 import net.bndy.lib.IOHelper;
 import org.junit.*;
 import org.junit.runners.MethodSorters;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -101,6 +103,34 @@ public class IndexServiceTest {
 
         SearchResult<IndexModel4Test> matchedAfterUpdate = indexService.search("id", "1", IndexModel4Test.class, 1, 10);
         Assert.assertEquals(matchedAfterUpdate.getContent().size(), 1);
+    }
+
+    @Test
+    public void t4_testEnum() {
+        IndexModel4Enum m1 = new IndexModel4Enum();
+        m1.setId("enum1");
+        m1.setName("Hello Bendy");
+        m1.setType(IndexModel4Enum.Type.Article);
+
+        IndexModel4Enum m2 = new IndexModel4Enum();
+        m2.setId("enum2");
+        m2.setName("Hello Bing");
+        m2.setType(IndexModel4Enum.Type.SimplePage);
+        indexService.createIndex(m1, m2);
+
+        IndexStatus status = indexService.status(IndexModel4Enum.class);
+        Assert.assertEquals(status.getNum(), 2);
+
+        // Test and condition
+        HashMap<String, Object> and = new HashMap<>();
+        and.put("type", "Article");
+        SearchResult<IndexModel4Enum> matched = indexService.search("hello", IndexModel4Enum.class, and, 1, 10);
+        Assert.assertEquals(matched.getContent().size(), 1);
+        Assert.assertEquals(CollectionHelper.first(matched.getContent()).getType(), IndexModel4Enum.Type.Article);
+
+        // Test for Enum Type, NOTE: Case sensitive
+        matched = indexService.search("type", "Article", IndexModel4Enum.class, 1, 10);
+        Assert.assertEquals(matched.getContent().size(), 1);
     }
 }
 
