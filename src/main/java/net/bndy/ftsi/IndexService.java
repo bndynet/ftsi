@@ -55,6 +55,10 @@ public class IndexService {
         if (StringHelper.isNullOrWhiteSpace(dataPath)) {
             throw new IllegalArgumentException("The data path can not be empty.");
         }
+        
+        if (!IOHelper.isDirectoryExisted(dataPath)) {
+            IOHelper.ensureDirectory(dataPath);
+        }
 
         this.dataPath = dataPath;
         this.analyzer = analyzer == null
@@ -297,6 +301,10 @@ public class IndexService {
         } catch (IOException ex) {
             ex.printStackTrace();
         } catch (ParseException ex) {
+            ex.printStackTrace();
+        } catch (IllegalStateException ex) {
+            // case - searching with double quotes(like "time out") 
+            //  exception: java.lang.IllegalStateException: field "id" was indexed without position data; cannot run PhraseQuery (phrase=id:"time out")
             ex.printStackTrace();
         }
 
